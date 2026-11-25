@@ -293,7 +293,12 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 
     const { start: dayStart, end: dayEnd, exact: aptDate } = parseCalendarDateUTC(data.appointmentDate);
 
-    const startDateTime = new Date(data.startTime);
+    let startDateTime = new Date(data.startTime);
+    if (isNaN(startDateTime.getTime())) {
+      const cleanDate = data.appointmentDate.split('T')[0];
+      const timePart = data.startTime.includes(':') ? data.startTime : `${data.startTime}:00`;
+      startDateTime = new Date(`${cleanDate}T${timePart.length === 5 ? timePart + ':00' : timePart}`);
+    }
     const endDateTime = new Date(startDateTime.getTime() + data.durationMinutes * 60 * 1000);
 
     // 1. Overlap conflict detection for the patient (prevent double-booking the patient in overlapping slots)

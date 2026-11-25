@@ -4,6 +4,7 @@ import { prisma } from '../../config/prisma';
 import { authenticateToken } from '../../middleware/auth';
 import { emitRealtimeEvent } from '../../sockets';
 import { MedicineType, PrescriptionType, PaymentMode, PaymentStatus } from '@prisma/client';
+import { generateReceiptNumber, generatePharmacyInvoiceNumber } from '../../utils/sequence';
 
 const router = Router();
 
@@ -600,8 +601,7 @@ router.post('/sales', authenticateToken, async (req: Request, res: Response) => 
   try {
     const data = pharmacySaleSchema.parse(req.body);
 
-    const count = await prisma.pharmacySale.count();
-    const invoiceNumber = `PHARM-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
+    const invoiceNumber = await generatePharmacyInvoiceNumber(prisma);
 
     const sale = await prisma.$transaction(async (tx) => {
       let subTotal = 0;
@@ -706,8 +706,7 @@ router.post('/sales', authenticateToken, async (req: Request, res: Response) => 
 
       // 4. Create Receipt if paid > 0 (store customer details in notes if walk-in)
       if (paidAmount > 0) {
-        const pCount = await tx.payment.count();
-        const receiptNumber = `RCP-${new Date().getFullYear()}-${(pCount + 1).toString().padStart(5, '0')}`;
+        const receiptNumber = await generateReceiptNumber(tx);
         await tx.payment.create({
           data: {
             receiptNumber,

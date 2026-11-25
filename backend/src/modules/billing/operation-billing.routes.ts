@@ -4,6 +4,7 @@ import { prisma } from '../../config/prisma';
 import { authenticateToken } from '../../middleware/auth';
 import { emitRealtimeEvent } from '../../sockets';
 import { PaymentMode, PaymentStatus, AppointmentStatus, VisitType } from '@prisma/client';
+import { generateReceiptNumber } from '../../utils/sequence';
 
 const router = Router();
 
@@ -31,10 +32,8 @@ router.post('/operation/:id/payment', authenticateToken, async (req: Request, re
     const newPending = Math.round((bill.totalAmount - newPaidAmount) * 100) / 100;
     const newStatus = newPending <= 0 ? PaymentStatus.PAID : PaymentStatus.PARTIALLY_PAID;
 
-    const pCount = await prisma.payment.count();
-    const receiptNumber = `RCP-${new Date().getFullYear()}-${(pCount + 1).toString().padStart(5, '0')}`;
-
     const result = await prisma.$transaction(async (tx) => {
+      const receiptNumber = await generateReceiptNumber(tx);
       const paymentRecord = await tx.payment.create({
         data: {
           receiptNumber,

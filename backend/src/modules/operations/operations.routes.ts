@@ -4,6 +4,7 @@ import { prisma } from '../../config/prisma';
 import { authenticateToken } from '../../middleware/auth';
 import { emitRealtimeEvent } from '../../sockets';
 import { ProcedureStatus, PaymentMode, PaymentStatus, AppointmentStatus, VisitType } from '@prisma/client';
+import { generateReceiptNumber, generateOperationInvoiceNumber } from '../../utils/sequence';
 
 const router = Router();
 
@@ -772,8 +773,7 @@ router.post('/:id/complete', authenticateToken, async (req: Request, res: Respon
 
     const paymentStatus = pendingBalance <= 0 ? PaymentStatus.PAID : paidAmount > 0 ? PaymentStatus.PARTIALLY_PAID : PaymentStatus.UNPAID;
 
-    const billCount = await prisma.operationBill.count();
-    const invoiceNumber = `OBILL-${new Date().getFullYear()}-${(billCount + 1).toString().padStart(5, '0')}`;
+    const invoiceNumber = await generateOperationInvoiceNumber(prisma);
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Mark procedure completed
@@ -849,8 +849,7 @@ router.post('/:id/complete', authenticateToken, async (req: Request, res: Respon
       // 3. Receipt if paid
       let receipt = null;
       if (paidAmount > 0) {
-        const pCount = await tx.payment.count();
-        const receiptNumber = `RCP-${new Date().getFullYear()}-${(pCount + 1).toString().padStart(5, '0')}`;
+        const receiptNumber = await generateReceiptNumber(tx);
         receipt = await tx.payment.create({
           data: {
             receiptNumber,
