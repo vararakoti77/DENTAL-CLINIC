@@ -110,44 +110,8 @@ async function main() {
   });
   console.log('✓ Created Specialist Doctor: Dr. Rajesh Sharma (consultation fee: ₹500)');
 
-  // 5. Seed 2 clean clinic medicines for immediate testing of the Pharmacy Reorder & Inward stock
-  const med1 = await prisma.medicineMaster.create({
-    data: {
-      itemCode: 'MED-00001',
-      medicineName: 'Amoxicillin 500mg',
-      brandName: 'Novamox 500',
-      packageInfo: 'Strip of 10 Capsules',
-      buyingUnit: 'STRIP',
-      sellingUnit: 'CAPSULE',
-      unitRatio: 10,
-      medicineType: MedicineType.CAPSULE,
-      strength: '500mg',
-      prescriptionType: PrescriptionType.SCHEDULE_H,
-      reorderLevel: 30,
-      gstRate: 12.0,
-      specialization: Specialization.DENTAL,
-      isActive: true,
-    },
-  });
-
-  const med2 = await prisma.medicineMaster.create({
-    data: {
-      itemCode: 'MED-00002',
-      medicineName: 'Paracetamol 650mg',
-      brandName: 'Dolo 650',
-      packageInfo: 'Strip of 15 Tablets',
-      buyingUnit: 'STRIP',
-      sellingUnit: 'TABLET',
-      unitRatio: 15,
-      medicineType: MedicineType.TABLET,
-      strength: '650mg',
-      prescriptionType: PrescriptionType.OTC,
-      reorderLevel: 20,
-      gstRate: 12.0,
-      isActive: true,
-    },
-  });
-  console.log('✓ Seeded 2 clean medicines with 0 stock (Amoxicillin 500mg, Paracetamol 650mg) for Pharmacy testing');
+  // No medicines seeded - completely clean catalog
+  console.log('✓ Pharmacy medicines catalog completely cleared (0 medicines)');
 
   console.log('===> Database is now 100% clean and ready for step-by-step testing!');
 }
