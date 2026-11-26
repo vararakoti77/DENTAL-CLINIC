@@ -2,13 +2,10 @@ name: dental-clinic
 
 networks:
   clinic_network:
-    name: clinic_network
-    external: true
+    driver: bridge
 
 volumes:
   clinic_pgdata:
-    name: clinic_pgdata
-    external: true
 
 services:
   # ==============================================================
@@ -57,7 +54,7 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       JWT_SECRET: ${JWT_SECRET:-clinic_jwt_super_secure_key_2026_dental_ortho}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
       FAST2SMS_API_KEY: ${FAST2SMS_API_KEY:-}
       TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
       TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}

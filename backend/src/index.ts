@@ -27,16 +27,11 @@ const app = express();
 const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5000;
-const CORS_ORIGIN = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim())
-  : [
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://localhost:5175',
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:5174',
-      'http://127.0.0.1:5175',
-    ];
+const rawCorsOrigin = process.env.CORS_ORIGIN?.trim();
+const CORS_ORIGIN: boolean | string[] =
+  !rawCorsOrigin || rawCorsOrigin === '*'
+    ? true
+    : rawCorsOrigin.split(',').map((s) => s.trim());
 
 // Socket.io initialization
 initSocketIO(server, CORS_ORIGIN);
