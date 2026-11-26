@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, Search } from 'lucide-react';
+import { Layers, Download } from 'lucide-react';
 import { MedicineMaster } from '../../../types';
 
 interface StockBatchesModuleProps {
@@ -36,6 +36,100 @@ export const StockBatchesModule: React.FC<StockBatchesModuleProps> = ({ medicine
     return true;
   });
 
+  const handleExportStocksCsv = () => {
+    const headers = [
+      'Item Name',
+      'Brand',
+      'Item Code',
+      'Manufacturer',
+      'Strength',
+      'Barcode',
+      'Package Info',
+      'HSN Code',
+      'Medicine Type',
+      'Buying Unit',
+      'Selling Unit',
+      'Unit Ratio',
+      'Reorder Level',
+      'Buying Price',
+      'MRP',
+      'Selling Price',
+      'Opening Stock',
+      'Batch Number',
+      'Expiry Date',
+      'Prescription Type',
+      'Status',
+    ];
+
+    const rows: string[][] = [];
+    filteredStockMedicines.forEach((med) => {
+      const statusLabel = med.totalStock <= 0 ? 'OUT OF STOCK' : med.isLowStock ? 'LOW STOCK' : 'IN STOCK';
+      if (med.batches && med.batches.length > 0) {
+        med.batches.forEach((b) => {
+          rows.push([
+            med.medicineName || '',
+            med.brandName || '',
+            med.itemCode || '',
+            med.manufacturer || '',
+            med.strength || '',
+            med.barcode || '',
+            med.packageInfo || '',
+            med.hsnCode || '',
+            med.medicineType || '',
+            med.buyingUnit || '',
+            med.sellingUnit || '',
+            String(med.unitRatio || 1),
+            String(med.reorderLevel || 0),
+            String(b.purchasePrice || 0),
+            String(b.mrp || 0),
+            String(b.sellingPrice || 0),
+            String(b.quantityInBase || 0),
+            b.batchNumber || '',
+            b.expiryDate ? new Date(b.expiryDate).toISOString().substring(0, 10) : '',
+            med.prescriptionType || '',
+            new Date(b.expiryDate).getTime() < now ? 'EXPIRED' : statusLabel,
+          ]);
+        });
+      } else {
+        rows.push([
+          med.medicineName || '',
+          med.brandName || '',
+          med.itemCode || '',
+          med.manufacturer || '',
+          med.strength || '',
+          med.barcode || '',
+          med.packageInfo || '',
+          med.hsnCode || '',
+          med.medicineType || '',
+          med.buyingUnit || '',
+          med.sellingUnit || '',
+          String(med.unitRatio || 1),
+          String(med.reorderLevel || 0),
+          '0',
+          '0',
+          '0',
+          String(med.totalStock || 0),
+          '',
+          '',
+          med.prescriptionType || '',
+          statusLabel,
+        ]);
+      }
+    });
+
+    const csv = [headers, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const todayStr = new Date().toISOString().substring(0, 10);
+    a.href = url;
+    a.download = `Pharmacy-Stocks-Export-${todayStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-6 space-y-4">
       <div className="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-3">
@@ -49,7 +143,7 @@ export const StockBatchesModule: React.FC<StockBatchesModuleProps> = ({ medicine
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="text"
             value={stockSearchQuery}
@@ -67,6 +161,16 @@ export const StockBatchesModule: React.FC<StockBatchesModuleProps> = ({ medicine
             <option value="LOW_STOCK">🟡 Low Stock</option>
             <option value="EXPIRING_SOON">🟠 Expiring Soon (&lt; 60d)</option>
           </select>
+          <button
+            type="button"
+            onClick={handleExportStocksCsv}
+            disabled={filteredStockMedicines.length === 0}
+            className="px-3.5 py-1.5 bg-[#0A685D] hover:bg-[#085249] disabled:opacity-40 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition"
+            title="Export medicines and batch stock as CSV for backup or future import"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export CSV</span>
+          </button>
         </div>
       </div>
 
@@ -107,7 +211,7 @@ export const StockBatchesModule: React.FC<StockBatchesModuleProps> = ({ medicine
                       <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md font-bold text-[10px]">
                         {med.medicineType}
                       </span>
-                      <div className="text-[10px] text-slate-400 mt-1">{med.packageInfo || '10X10'}</div>
+                      <div className="text-[10px] text-slate-400 mt-1">{med.packageInfo || '—'}</div>
                     </td>
 
                     <td className="p-3">
