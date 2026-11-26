@@ -16,7 +16,7 @@ export const QuickAddPatientModal: React.FC<QuickAddPatientModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
-  const [age, setAge] = useState<number>(30);
+  const [age, setAge] = useState<number>(0);
   const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE');
   const [loading, setLoading] = useState(false);
 

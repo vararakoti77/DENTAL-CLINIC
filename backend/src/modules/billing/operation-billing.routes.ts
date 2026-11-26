@@ -27,12 +27,23 @@ router.post('/operation/:id/payment', authenticateToken, async (req: Request, re
       return res.status(400).json({ success: false, message: 'This procedure bill is already fully paid' });
     }
 
-    const payAmount = Math.min(bill.pendingBalance, parseFloat(amount));
-    const newPaidAmount = bill.paidAmount + payAmount;
-    const newPending = Math.round((bill.totalAmount - newPaidAmount) * 100) / 100;
-    const newStatus = newPending <= 0 ? PaymentStatus.PAID : PaymentStatus.PARTIALLY_PAID;
-
     const result = await prisma.$transaction(async (tx) => {
+      const latestBill = await tx.operationBill.findUnique({
+        where: { id },
+        include: { procedure: { include: { patient: true } } },
+      });
+      if (!latestBill || latestBill.pendingBalance <= 0) {
+        throw new Error('This procedure bill is already fully paid');
+      }
+
+      const payAmount = Math.min(latestBill.pendingBalance, parseFloat(amount));
+      if (payAmount <= 0) {
+        throw new Error('Payment amount must be greater than zero');
+      }
+      const newPaidAmount = Math.round((latestBill.paidAmount + payAmount) * 100) / 100;
+      const newPending = Math.round((latestBill.totalAmount - newPaidAmount) * 100) / 100;
+      const newStatus = newPending <= 0 ? PaymentStatus.PAID : PaymentStatus.PARTIALLY_PAID;
+
       const receiptNumber = await generateReceiptNumber(tx);
       const paymentRecord = await tx.payment.create({
         data: {
@@ -40,8 +51,8 @@ router.post('/operation/:id/payment', authenticateToken, async (req: Request, re
           amount: payAmount,
           paymentMode: paymentMode || PaymentMode.CASH,
           referenceNumber: referenceNumber || null,
-          notes: notes || `Procedure settlement for ${bill.invoiceNumber}`,
-          operationBillId: bill.id,
+          notes: notes || `Procedure settlement for ${latestBill.invoiceNumber}`,
+          operationBillId: latestBill.id,
         },
       });
 

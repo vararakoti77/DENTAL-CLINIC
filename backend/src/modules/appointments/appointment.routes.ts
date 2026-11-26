@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../config/prisma';
-import { authenticateToken } from '../../middleware/auth';
+import { authenticateToken, AuthRequest } from '../../middleware/auth';
 import { emitRealtimeEvent } from '../../sockets';
 import { AppointmentStatus, VisitType, Specialization } from '@prisma/client';
 import {
@@ -207,15 +207,21 @@ router.get('/busy-slots', authenticateToken, async (req: Request, res: Response)
 });
 
 // GET /api/appointments - List appointments with filters
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const { date, doctorId, status, specialization, patientId } = req.query;
 
     const where: any = {};
+    if (req.user?.role?.startsWith('DOCTOR')) {
+      const loggedInDoc = await prisma.doctor.findUnique({ where: { userId: req.user.id } });
+      if (loggedInDoc) {
+        where.doctorId = loggedInDoc.id;
+      }
+    }
     if (patientId && typeof patientId === 'string') {
       where.patientId = patientId;
     }
-    if (doctorId && typeof doctorId === 'string') {
+    if (doctorId && typeof doctorId === 'string' && !where.doctorId) {
       where.doctorId = doctorId;
     }
     if (specialization && typeof specialization === 'string') {

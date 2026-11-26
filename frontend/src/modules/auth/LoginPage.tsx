@@ -87,13 +87,13 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [loginRole, setLoginRole] = useState<'RECEPTIONIST' | 'DOCTOR'>('RECEPTIONIST');
 
   // Receptionist Credentials
-  const [username, setUsername] = useState<string>('admin');
-  const [password, setPassword] = useState<string>('admin123');
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
 
   // Doctor Portal Credentials & Available Doctors
   const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
-  const [doctorPassword, setDoctorPassword] = useState<string>('doctor123');
+  const [doctorPassword, setDoctorPassword] = useState<string>('');
   const [loadingDoctors, setLoadingDoctors] = useState<boolean>(false);
 
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -342,7 +342,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     <Icon name="staff" size={15} />
                     <input
                       type="text"
-                      placeholder="Enter username (e.g. admin)"
+                      placeholder="Enter username or email"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       autoComplete="username"
@@ -356,7 +356,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     <Icon name="lock" size={15} />
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter your password (e.g. admin123)"
+                      placeholder="Enter password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       autoComplete="current-password"
@@ -460,7 +460,7 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         <Icon name="lock" size={15} />
                         <input
                           type={showPassword ? 'text' : 'password'}
-                          placeholder="Enter doctor password (default: doctor123)"
+                          placeholder="Enter doctor password"
                           value={doctorPassword}
                           onChange={(e) => setDoctorPassword(e.target.value)}
                           autoComplete="current-password"
@@ -490,9 +490,6 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 />
                 <span>Keep me signed in</span>
               </label>
-              <button type="button" onClick={() => setShowHelpModal(true)}>
-                Quick Demo Access
-              </button>
             </div>
 
             <button className={`login-submit ${loginRole === 'DOCTOR' ? '!bg-teal-600 hover:!bg-teal-700' : ''}`} type="submit" disabled={submitting}>
@@ -583,94 +580,18 @@ export const LoginPage: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   Clinic Workspace Access
                 </h3>
                 <p style={{ margin: 0, fontSize: '12px', color: '#718692' }}>
-                  Staff roles &amp; test credentials
+                  Staff &amp; Doctor Support
                 </p>
               </div>
             </div>
 
-            <p style={{ fontSize: '12px', color: '#526b78', lineHeight: 1.5, marginBottom: '16px' }}>
-              Access is restricted to clinic staff and receptionists. For quick login, you can click
-              the pre-configured reception account:
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px' }}>
-              <div
-                onClick={() => fillQuickCredentials('admin', 'admin123')}
-                style={{
-                  padding: '12px',
-                  borderRadius: '10px',
-                  border: '1px solid #dce8ea',
-                  cursor: 'pointer',
-                  backgroundColor: '#f3f9fa',
-                  transition: 'background-color 150ms',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#183344' }}>
-                      Clinic Reception Terminal
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: '8px',
-                        fontSize: '10px',
-                        backgroundColor: '#ddf3fa',
-                        color: '#0c6f93',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        fontWeight: 600,
-                      }}
-                    >
-                      All-in-One Desk
-                    </span>
-                  </div>
-                  <span style={{ fontSize: '11px', color: '#2baad8', fontWeight: 600 }}>Use &rarr;</span>
-                </div>
-                <div style={{ fontSize: '11px', color: '#718692', marginTop: '4px' }}>
-                  <span>user: admin</span>
-                  <span style={{ margin: '0 6px' }}>&middot;</span>
-                  <span>pass: admin123</span>
-                </div>
-              </div>
-
-              <div
-                onClick={() => fillQuickCredentials('priya', 'admin123')}
-                style={{
-                  padding: '12px',
-                  borderRadius: '10px',
-                  border: '1px solid #dce8ea',
-                  cursor: 'pointer',
-                  backgroundColor: '#f3f9fa',
-                  transition: 'background-color 150ms',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#183344' }}>
-                      Receptionist (Priya)
-                    </span>
-                    <span
-                      style={{
-                        marginLeft: '8px',
-                        fontSize: '10px',
-                        backgroundColor: '#e6fcf5',
-                        color: '#047857',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        fontWeight: 600,
-                      }}
-                    >
-                      Reception Desk
-                    </span>
-                  </div>
-                  <span style={{ fontSize: '11px', color: '#2baad8', fontWeight: 600 }}>Use &rarr;</span>
-                </div>
-                <div style={{ fontSize: '11px', color: '#718692', marginTop: '4px' }}>
-                  <span>user: priya</span>
-                  <span style={{ margin: '0 6px' }}>&middot;</span>
-                  <span>pass: admin123</span>
-                </div>
-              </div>
+            <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+              <p style={{ fontSize: '13px', color: '#334155', lineHeight: 1.6, margin: 0 }}>
+                Access to HospAI Dental is strictly restricted to verified clinic employees and consulting doctors.
+              </p>
+              <p style={{ fontSize: '12px', color: '#64748b', lineHeight: 1.5, marginTop: '10px', marginBottom: 0 }}>
+                If you are a new staff member or need your credentials reset, please speak to your Clinic Administrator or System IT support.
+              </p>
             </div>
 
             <div

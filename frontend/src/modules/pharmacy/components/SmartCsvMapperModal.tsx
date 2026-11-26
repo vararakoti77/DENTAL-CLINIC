@@ -697,7 +697,7 @@ export const SmartCsvMapperModal: React.FC<SmartCsvMapperModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -706,11 +706,17 @@ export const SmartCsvMapperModal: React.FC<SmartCsvMapperModalProps> = ({
             Cancel
           </button>
 
+          {!mapping['medicineName'] && (
+            <div className="flex-1 text-center text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl">
+              Required: Map the &ldquo;Item / Medicine Name&rdquo; column above to enable import. Non-medicine files cannot be imported.
+            </div>
+          )}
+
           <button
             type="button"
             onClick={onConfirmImport}
-            disabled={isImporting}
-            className="px-6 py-2.5 bg-[#0A685D] hover:bg-[#08544B] disabled:opacity-50 text-white rounded-xl font-black text-xs shadow-sm flex items-center gap-2 cursor-pointer"
+            disabled={isImporting || !mapping['medicineName']}
+            className="px-6 py-2.5 bg-[#0A685D] hover:bg-[#08544B] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-black text-xs shadow-sm flex items-center gap-2 cursor-pointer"
           >
             {isImporting ? (
               <>

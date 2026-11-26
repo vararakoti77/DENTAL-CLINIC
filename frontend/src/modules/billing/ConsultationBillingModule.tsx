@@ -57,12 +57,12 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
   const [patientTodayBill, setPatientTodayBill] = useState<any | null>(null);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
-  const [consultationFee, setConsultationFee] = useState(600);
+  const [consultationFee, setConsultationFee] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'INR' | 'PERCENT'>('INR');
   const [discountInputVal, setDiscountInputVal] = useState<number>(0);
   const [taxRate, setTaxRate] = useState(0); // GST %
-  const [paidAmount, setPaidAmount] = useState(600);
+  const [paidAmount, setPaidAmount] = useState(0);
   const [paymentMode, setPaymentMode] = useState('CASH');
   const [referenceNumber, setReferenceNumber] = useState('');
   const [notes, setNotes] = useState('');
@@ -71,7 +71,7 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
 
   // Complete Procedure Billing Modal (When coming from Operations)
   const [activeProcedureToBill, setActiveProcedureToBill] = useState<Procedure | null>(null);
-  const [procConsumablesFee, setProcConsumablesFee] = useState(500);
+  const [procConsumablesFee, setProcConsumablesFee] = useState(0);
   const [procDiscount, setProcDiscount] = useState(0);
   const [procTaxRate, setProcTaxRate] = useState(0);
   const [procPaidAmount, setProcPaidAmount] = useState(0);
@@ -82,6 +82,7 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
   const [settleBill, setSettleBill] = useState<ConsultationBill | null>(null);
   const [settleAmount, setSettleAmount] = useState(0);
   const [settleMode, setSettleMode] = useState('CASH');
+  const [settleSubmitting, setSettleSubmitting] = useState(false);
 
   // Procedures Awaiting Billing
   const [unbilledProcedures, setUnbilledProcedures] = useState<any[]>([]);
@@ -90,12 +91,19 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
   const [settleProcBill, setSettleProcBill] = useState<any | null>(null);
   const [settleProcAmount, setSettleProcAmount] = useState(0);
   const [settleProcMode, setSettleProcMode] = useState('CASH');
+  const [settleProcSubmitting, setSettleProcSubmitting] = useState(false);
 
-  // Handle passed pending procedure from Operations
+  // Handle passed pending procedure from Operations or Procedure Appointment
   useEffect(() => {
     if (pendingProcedureToBill) {
       setBillingTab('procedure');
-      // DO NOT auto-open modal! Billing must only be done in Billing when clicking on the patient
+      if (pendingProcedureToBill.procedureCode && typeof pendingProcedureToBill.charges === 'number') {
+        setActiveProcedureToBill(pendingProcedureToBill);
+        setProcConsumablesFee(0);
+        setProcDiscount(0);
+        setProcTaxRate(0);
+        setProcPaidAmount(pendingProcedureToBill.charges || 0);
+      }
     }
   }, [pendingProcedureToBill]);
 
@@ -384,8 +392,9 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
 
   const handleSettleConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!settleBill) return;
+    if (!settleBill || settleSubmitting) return;
 
+    setSettleSubmitting(true);
     try {
       const res = await api.post(`/billing/consultation/${settleBill.id}/payment`, {
         amount: settleAmount,
@@ -398,13 +407,16 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
       }
     } catch (err: any) {
       alert(err.response?.data?.message || 'Error recording consultation payment');
+    } finally {
+      setSettleSubmitting(false);
     }
   };
 
   const handleSettleProcedure = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!settleProcBill) return;
+    if (!settleProcBill || settleProcSubmitting) return;
 
+    setSettleProcSubmitting(true);
     try {
       const res = await api.post(`/billing/procedure/operation/${settleProcBill.id}/payment`, {
         amount: settleProcAmount,
@@ -417,6 +429,8 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
       }
     } catch (err: any) {
       alert(err.response?.data?.message || 'Error recording procedure payment');
+    } finally {
+      setSettleProcSubmitting(false);
     }
   };
 
@@ -723,7 +737,9 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
                           }`}
                           onClick={() => {
                             setActiveProcedureToBill(proc);
-                            setProcPaidAmount(proc.charges + 500);
+                            setProcConsumablesFee(0);
+                            setProcDiscount(0);
+                            setProcPaidAmount(proc.charges);
                           }}
                         >
                           <td className="p-3 pl-5 font-mono font-bold text-slate-800">{proc.procedureCode}</td>
@@ -770,7 +786,9 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setActiveProcedureToBill(proc);
-                                setProcPaidAmount(proc.charges + 500);
+                                setProcConsumablesFee(0);
+                                setProcDiscount(0);
+                                setProcPaidAmount(proc.charges);
                               }}
                               className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
                             >
@@ -1369,9 +1387,10 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+                  disabled={settleSubmitting}
+                  className="px-5 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-50"
                 >
-                  Record Payment
+                  {settleSubmitting ? 'Recording Payment...' : 'Record Payment'}
                 </button>
               </div>
             </form>
@@ -1427,9 +1446,10 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+                  disabled={settleProcSubmitting}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-50"
                 >
-                  Collect Procedure Payment
+                  {settleProcSubmitting ? 'Collecting Payment...' : 'Collect Procedure Payment'}
                 </button>
               </div>
             </form>

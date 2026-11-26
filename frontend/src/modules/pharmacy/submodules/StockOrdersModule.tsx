@@ -60,9 +60,10 @@ export const StockOrdersModule: React.FC<StockOrdersModuleProps> = ({
 
   // Dedicated single-item Order Card Modal
   const [orderCardMedicine, setOrderCardMedicine] = useState<ReorderItem | null>(null);
-  const [orderCardQty, setOrderCardQty] = useState<number>(50);
+  const [orderCardQty, setOrderCardQty] = useState<number>(0);
   const [orderCardPhone, setOrderCardPhone] = useState<string>('');
   const [orderCardNotes, setOrderCardNotes] = useState<string>('');
+  const [isOrderCardDispatched, setIsOrderCardDispatched] = useState<boolean>(false);
 
   const handleOpenOrderCard = (item: ReorderItem) => {
     const qty = orderQuantities[item.id] || item.suggestedQty || 50;
@@ -70,6 +71,7 @@ export const StockOrdersModule: React.FC<StockOrdersModuleProps> = ({
     setOrderCardQty(qty);
     setOrderCardPhone(orderSupplierPhone || localStorage.getItem('pharmacy_supplier_phone') || '');
     setOrderCardNotes('');
+    setIsOrderCardDispatched(false);
   };
 
   const handleSendOrderCardWhatsApp = (e: React.FormEvent) => {
@@ -113,23 +115,29 @@ export const StockOrdersModule: React.FC<StockOrdersModuleProps> = ({
       msg += `📝 *Notes / Instructions:* ${orderCardNotes.trim()}\n`;
     }
     msg += `------------------------------------\n`;
-    msg += `Please confirm availability and dispatch earliest.\nHospAI Pharmacy Desk: +91 98765 43210`;
+    msg += `Please confirm availability and dispatch earliest.\nHospAI Pharmacy Desk`;
 
     // Send via universal unsaved-number safe method
     sendWhatsAppMessage(clean, msg);
 
-    // Mark as ordered in status map and local storage
-    const today = new Date().toLocaleDateString('en-IN');
-    const updated = {
-      ...orderedStatusMap,
-      [orderCardMedicine.id]: { date: today, qty: orderCardQty },
-    };
-    setOrderedStatusMap(updated);
-    try {
-      localStorage.setItem('pharmacy_ordered_status', JSON.stringify(updated));
-    } catch {}
+    // Keep modal open and prompt for explicit confirmation so status is NOT prematurely marked
+    setIsOrderCardDispatched(true);
+  };
 
+  const handleConfirmOrderCardDispatched = (didSend: boolean) => {
+    if (didSend && orderCardMedicine) {
+      const today = new Date().toLocaleDateString('en-IN');
+      const updated = {
+        ...orderedStatusMap,
+        [orderCardMedicine.id]: { date: today, qty: orderCardQty },
+      };
+      setOrderedStatusMap(updated);
+      try {
+        localStorage.setItem('pharmacy_ordered_status', JSON.stringify(updated));
+      } catch {}
+    }
     setOrderCardMedicine(null);
+    setIsOrderCardDispatched(false);
   };
 
   const handleDismissAlerts = () => {
@@ -294,8 +302,10 @@ export const StockOrdersModule: React.FC<StockOrdersModuleProps> = ({
 
     const cleanPhone = orderSupplierPhone.replace(/[^0-9]/g, '');
     if (cleanPhone && cleanPhone.length >= 10) {
-      markSelectedItemsAsOrdered();
       sendWhatsAppMessage(cleanPhone, msg);
+      if (window.confirm('WhatsApp PO link opened. Did you finish sending the purchase order to the supplier? Click OK to mark selected items as Ordered, or Cancel to keep them pending.')) {
+        markSelectedItemsAsOrdered();
+      }
     } else {
       setModalSupplierPhone(orderSupplierPhone);
       setShowSupplierModal(true);
@@ -314,11 +324,13 @@ export const StockOrdersModule: React.FC<StockOrdersModuleProps> = ({
       localStorage.setItem('pharmacy_supplier_phone', clean);
     } catch {}
 
-    markSelectedItemsAsOrdered();
     setShowSupplierModal(false);
 
     const msg = pendingOrderMsg || buildOrderWhatsAppText();
     sendWhatsAppMessage(clean, msg);
+    if (window.confirm('WhatsApp PO link opened. Did you finish sending the purchase order to the supplier? Click OK to mark selected items as Ordered, or Cancel to keep them pending.')) {
+      markSelectedItemsAsOrdered();
+    }
   };
 
   const handleCopyOrderList = () => {
@@ -1155,23 +1167,52 @@ export const StockOrdersModule: React.FC<StockOrdersModuleProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setOrderCardMedicine(null)}
-                  className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl font-bold cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-extrabold cursor-pointer transition shadow-xs flex items-center gap-1.5"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Send Order on WhatsApp</span>
-                </button>
-              </div>
+              {/* Action Buttons or Post-Dispatch Confirmation */}
+              {isOrderCardDispatched ? (
+                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
+                  <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>WhatsApp Purchase Order Link Opened</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600">
+                    Did you finish sending the purchase order to the distributor? Mark as Ordered now, or keep as pending if not sent.
+                  </p>
+                  <div className="pt-2 flex items-center justify-end gap-2 border-t border-amber-200/60">
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmOrderCardDispatched(false)}
+                      className="px-3.5 py-1.5 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
+                    >
+                      Not Sent (Keep Pending)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmOrderCardDispatched(true)}
+                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-xs flex items-center gap-1 cursor-pointer"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Yes, Mark as Ordered</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOrderCardMedicine(null)}
+                    className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-xl font-bold cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-extrabold cursor-pointer transition shadow-xs flex items-center gap-1.5"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Open in WhatsApp</span>
+                  </button>
+                </div>
+              )}
             </form>
           </div>
         </div>

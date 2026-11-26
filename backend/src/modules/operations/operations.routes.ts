@@ -91,8 +91,6 @@ async function ensureDefaultProcedureCatalogue() {
 // GET /api/procedures/masters - Query procedure masters catalogue
 router.get('/masters', authenticateToken, async (req: Request, res: Response) => {
   try {
-    await ensureDefaultProcedureCatalogue();
-
     const { search, category, status, includeInactive } = req.query;
     const where: any = {};
 
@@ -297,6 +295,11 @@ router.get('/history', authenticateToken, async (req: Request, res: Response) =>
           doctor: { include: { user: { select: { fullName: true } } } },
           procedureMaster: true,
           operationInvoice: { include: { payments: true } },
+          clinicalNote: {
+            include: {
+              doctor: { include: { user: { select: { fullName: true } } } },
+            },
+          },
         },
         orderBy: { procedureDate: 'desc' },
       }),
@@ -373,6 +376,14 @@ router.get('/history', authenticateToken, async (req: Request, res: Response) =>
       const visit = visitsMap.get(visitKey);
       visit.procedures.push(pr);
 
+      // Link procedure's clinical note if attached
+      if ((pr as any).clinicalNote) {
+        const cn = (pr as any).clinicalNote;
+        if (!visit.clinicalNotes.some((n: any) => n.id === cn.id)) {
+          visit.clinicalNotes.push(cn);
+        }
+      }
+
       // Collect prescribed medications from procedures into the visit level
       if (Array.isArray(pr.prescribedMedications) && pr.prescribedMedications.length > 0) {
         pr.prescribedMedications.forEach((med: any) => {
@@ -400,6 +411,16 @@ router.get('/history', authenticateToken, async (req: Request, res: Response) =>
       if (visitsMap.has(visitKey)) {
         const visit = visitsMap.get(visitKey);
         visit.prescriptions.push(sale);
+      }
+    });
+
+    // Ensure all visits have clinical notes and complaints linked
+    visitsMap.forEach((visit) => {
+      if (visit.clinicalNotes.length === 0) {
+        const patientNote = clinicalNotes.find((cn) => cn.patientId === visit.patientId);
+        if (patientNote) {
+          visit.patientPrimaryNote = patientNote;
+        }
       }
     });
 
@@ -650,6 +671,54 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       createdProcedures.push(created);
     }
 
+    // Sync status with matching appointment for this patient on this date
+    try {
+      const procDate = new Date(parsedDate);
+      const startOfDay = new Date(procDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(procDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const matchingApt = await prisma.appointment.findFirst({
+        where: {
+          patientId: patient.id,
+          appointmentDate: { gte: startOfDay, lte: endOfDay },
+          status: { notIn: [AppointmentStatus.CANCELLED] },
+        },
+        orderBy: { appointmentDate: 'asc' },
+      });
+
+      if (matchingApt) {
+        let aptStatusToSet: AppointmentStatus | null = null;
+        if (normalizedStatus === ProcedureStatus.COMPLETED) {
+          aptStatusToSet = AppointmentStatus.COMPLETED;
+        } else if (normalizedStatus === ProcedureStatus.IN_PROGRESS) {
+          aptStatusToSet = AppointmentStatus.IN_PROGRESS;
+        } else if (normalizedStatus === ProcedureStatus.PLANNED || normalizedStatus === ProcedureStatus.SCHEDULED) {
+          if (matchingApt.status !== AppointmentStatus.COMPLETED) {
+            aptStatusToSet = AppointmentStatus.SCHEDULED;
+          }
+        }
+
+        if (aptStatusToSet && matchingApt.status !== aptStatusToSet) {
+          const updatedApt = await prisma.appointment.update({
+            where: { id: matchingApt.id },
+            data: { status: aptStatusToSet },
+            include: {
+              patient: true,
+              doctor: { include: { user: { select: { fullName: true } } } },
+            },
+          });
+          emitRealtimeEvent('appointment:updated', updatedApt);
+          if (aptStatusToSet === AppointmentStatus.COMPLETED) {
+            emitRealtimeEvent('appointment:completed', updatedApt);
+          }
+        }
+      }
+    } catch (aptSyncErr) {
+      console.error('Error syncing appointment status on procedure creation:', aptSyncErr);
+    }
+
     res.status(201).json({
       success: true,
       message:
@@ -690,8 +759,8 @@ router.patch('/:id/status', authenticateToken, async (req: Request, res: Respons
       },
     });
 
-    // If procedure marked COMPLETED, automatically complete any matching scheduled/in-progress appointment for this patient on this day
-    if (targetStatus === ProcedureStatus.COMPLETED && proc.patientId) {
+    // Reflect procedure status changes in matching appointment
+    if (proc.patientId) {
       try {
         const procDate = new Date(proc.procedureDate);
         const startOfDay = new Date(procDate);
@@ -699,28 +768,41 @@ router.patch('/:id/status', authenticateToken, async (req: Request, res: Respons
         const endOfDay = new Date(procDate);
         endOfDay.setHours(23, 59, 59, 999);
 
-        const matchingApt = await prisma.appointment.findFirst({
-          where: {
-            patientId: proc.patientId,
-            status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.IN_PROGRESS] },
-            appointmentDate: { gte: startOfDay, lte: endOfDay },
-          },
-        });
+        let targetAptStatus: AppointmentStatus | null = null;
+        if (targetStatus === ProcedureStatus.COMPLETED) {
+          targetAptStatus = AppointmentStatus.COMPLETED;
+        } else if (targetStatus === ProcedureStatus.IN_PROGRESS) {
+          targetAptStatus = AppointmentStatus.IN_PROGRESS;
+        } else if (targetStatus === ProcedureStatus.PLANNED || targetStatus === ProcedureStatus.SCHEDULED) {
+          targetAptStatus = AppointmentStatus.SCHEDULED;
+        }
 
-        if (matchingApt) {
-          const updatedApt = await prisma.appointment.update({
-            where: { id: matchingApt.id },
-            data: { status: AppointmentStatus.COMPLETED },
-            include: {
-              patient: true,
-              doctor: { include: { user: { select: { fullName: true } } } },
+        if (targetAptStatus) {
+          const matchingApt = await prisma.appointment.findFirst({
+            where: {
+              patientId: proc.patientId,
+              status: { notIn: [AppointmentStatus.CANCELLED] },
+              appointmentDate: { gte: startOfDay, lte: endOfDay },
             },
           });
-          emitRealtimeEvent('appointment:updated', updatedApt);
-          emitRealtimeEvent('appointment:completed', updatedApt);
+
+          if (matchingApt && matchingApt.status !== targetAptStatus) {
+            const updatedApt = await prisma.appointment.update({
+              where: { id: matchingApt.id },
+              data: { status: targetAptStatus },
+              include: {
+                patient: true,
+                doctor: { include: { user: { select: { fullName: true } } } },
+              },
+            });
+            emitRealtimeEvent('appointment:updated', updatedApt);
+            if (targetAptStatus === AppointmentStatus.COMPLETED) {
+              emitRealtimeEvent('appointment:completed', updatedApt);
+            }
+          }
         }
       } catch (aptErr) {
-        console.error('Error auto-completing linked procedure appointment:', aptErr);
+        console.error('Error syncing linked appointment status:', aptErr);
       }
     }
 

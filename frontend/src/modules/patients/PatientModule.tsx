@@ -587,139 +587,298 @@ export const PatientModule: React.FC<PatientModuleProps> = ({
   // Modal Component
   const renderRegisterModal = () => {
     if (!showRegisterModal) return null;
+
+    const quickAlertTags = [
+      'Diabetic',
+      'Hypertension',
+      'Penicillin Allergy',
+      'Asthma',
+      'Bleeding Tendency',
+      'Cardiac History',
+      'None',
+    ];
+
+    const toggleAlertTag = (tag: string) => {
+      if (tag === 'None') {
+        setFormData((prev) => ({ ...prev, medicalAlerts: 'None' }));
+        return;
+      }
+      setFormData((prev) => {
+        let current = prev.medicalAlerts ? prev.medicalAlerts.split(',').map((s) => s.trim()).filter(Boolean) : [];
+        current = current.filter((s) => s.toLowerCase() !== 'none');
+        if (current.includes(tag)) {
+          current = current.filter((s) => s !== tag);
+        } else {
+          current.push(tag);
+        }
+        return { ...prev, medicalAlerts: current.join(', ') };
+      });
+    };
+
     return (
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <h3 className="text-base font-black text-slate-900">
-              {editingPatient ? 'Edit Patient Profile' : 'Register New Patient'}
-            </h3>
+        <div className="bg-white rounded-3xl max-w-4xl w-full p-7 md:p-8 shadow-2xl border border-slate-200 max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-teal-50 border border-teal-200/80 flex items-center justify-center text-[#0A685D] shadow-2xs">
+                <UserPlus className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base md:text-lg font-black text-slate-900 tracking-tight">
+                    {editingPatient ? 'Edit Patient Profile' : 'Register New Patient'}
+                  </h3>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-100 text-teal-800">
+                    Clinical Record
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Enter demographic, contact and clinical safety details for outpatient registration
+                </p>
+              </div>
+            </div>
             <button
               type="button"
               onClick={() => setShowRegisterModal(false)}
-              className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer"
+              className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {formError && (
-            <div className="mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold">
-              {formError}
+            <div className="mt-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+              <span>{formError}</span>
             </div>
           )}
 
-          <form onSubmit={handleSavePatient} className="mt-4 space-y-3.5 text-xs">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                Full Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g. vara rakoti"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
-              />
+          <form onSubmit={handleSavePatient} className="mt-5">
+            {/* Horizontal 2-Column Clinical Layout */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
+              {/* Left Column: Demographics & Identity */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#0A685D] pb-1 border-b border-slate-100">
+                  <User className="w-4 h-4" />
+                  <span>Personal & Demographics</span>
+                </div>
+
+                {/* Full Name */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5">
+                    Full Name <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Enter full name"
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:border-[#0A685D] focus:ring-2 focus:ring-[#0A685D]/20 outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                {/* Gender Selector */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5">
+                    Gender <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['MALE', 'FEMALE', 'OTHER'] as const).map((g) => {
+                      const isSelected = formData.gender === g;
+                      return (
+                        <button
+                          key={g}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, gender: g })}
+                          className={`py-2 px-2 text-center text-xs font-bold rounded-xl border transition cursor-pointer ${
+                            isSelected
+                              ? 'bg-[#0A685D] text-white border-[#0A685D] shadow-2xs'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {g === 'MALE' ? 'Male' : g === 'FEMALE' ? 'Female' : 'Other'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Age & DOB side by side */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5">
+                      Age (Years) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="125"
+                      required
+                      value={formData.age}
+                      onChange={(e) => {
+                        const cleaned = e.target.value.replace(/\D/g, '').slice(0, 3);
+                        setFormData({ ...formData, age: cleaned });
+                      }}
+                      placeholder="Enter age"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:bg-white focus:border-[#0A685D] focus:ring-2 focus:ring-[#0A685D]/20 outline-none transition"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5">
+                      Date of Birth
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        value={formData.dob}
+                        onChange={(e) => handleAgeCalculation(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-[#0A685D] focus:ring-2 focus:ring-[#0A685D]/20 outline-none transition"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Email (Optional) */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5">
+                    Email Address <span className="text-slate-400 font-normal lowercase">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="Enter email address"
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-[#0A685D] focus:ring-2 focus:ring-[#0A685D]/20 outline-none transition"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Contact & Medical History */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#0A685D] pb-1 border-b border-slate-100">
+                  <Phone className="w-4 h-4" />
+                  <span>Contact & Medical Safety</span>
+                </div>
+
+                {/* Mobile */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between">
+                    <span>Mobile Number <span className="text-rose-500">*</span></span>
+                    <span className="text-[10px] font-mono text-slate-400 font-normal">
+                      {formData.mobile.length}/10 Digits
+                    </span>
+                  </label>
+                  <div className="flex rounded-xl overflow-hidden border border-slate-200 focus-within:border-[#0A685D] focus-within:ring-2 focus-within:ring-[#0A685D]/20 transition bg-slate-50">
+                    <div className="bg-slate-100 text-slate-700 px-3.5 py-2.5 text-xs font-bold font-mono flex items-center gap-1 border-r border-slate-200 select-none">
+                      <span>🇮🇳</span>
+                      <span>+91</span>
+                    </div>
+                    <input
+                      type="tel"
+                      required
+                      maxLength={10}
+                      value={formData.mobile}
+                      onChange={(e) => handleMobileInput(e.target.value)}
+                      placeholder="Enter 10-digit mobile"
+                      className="w-full px-3.5 py-2.5 bg-transparent text-xs font-mono font-bold text-slate-900 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* City / Address */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5">
+                    City / Residential Address
+                  </label>
+                  <div className="relative">
+                    <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      placeholder="Enter city or residential address"
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-[#0A685D] focus:ring-2 focus:ring-[#0A685D]/20 outline-none transition"
+                    />
+                  </div>
+                </div>
+
+                {/* Medical Alerts & Allergies with Quick Tags */}
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1.5 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Medical Alerts / Allergies</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-normal">Click chips to toggle</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.medicalAlerts}
+                    onChange={(e) => setFormData({ ...formData, medicalAlerts: e.target.value })}
+                    placeholder="Enter medical alerts or allergies"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-[#0A685D] focus:ring-2 focus:ring-[#0A685D]/20 outline-none transition"
+                  />
+
+                  {/* Quick Clinical Alert Chips */}
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {quickAlertTags.map((tag) => {
+                      const isActive = (formData.medicalAlerts || '')
+                        .toLowerCase()
+                        .includes(tag.toLowerCase());
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => toggleAlertTag(tag)}
+                          className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer border ${
+                            isActive
+                              ? tag === 'None'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                : 'bg-rose-100 text-rose-800 border-rose-300 shadow-2xs'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200'
+                          }`}
+                        >
+                          {isActive ? '✓ ' : '+ '}
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                  Mobile <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  required
-                  maxLength={10}
-                  value={formData.mobile}
-                  onChange={(e) => handleMobileInput(e.target.value)}
-                  placeholder="10-digit mobile"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-medium"
-                />
+            {/* Bottom Actions Bar */}
+            <div className="mt-7 pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                <Sparkles className="w-3.5 h-3.5 text-[#0A685D]" />
+                <span>Auto-generates unique DOC-XXXX identifier and digital outpatient profile</span>
               </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Gender</label>
-                <select
-                  value={formData.gender}
-                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+              <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterModal(false)}
+                  className="px-5 py-2.5 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-600 transition cursor-pointer"
                 >
-                  <option value="MALE">Male</option>
-                  <option value="FEMALE">Female</option>
-                  <option value="OTHER">Other</option>
-                </select>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-6 py-2.5 bg-[#0A685D] hover:bg-[#085249] text-white rounded-xl text-xs font-bold transition shadow-sm cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>{submitting ? 'Saving...' : editingPatient ? 'Update Profile' : 'Register Patient'}</span>
+                </button>
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">Age</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="125"
-                  required
-                  value={formData.age}
-                  onChange={(e) => {
-                    const cleaned = e.target.value.replace(/\D/g, '').slice(0, 3);
-                    setFormData({ ...formData, age: cleaned });
-                  }}
-                  placeholder="e.g. 25"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium font-mono"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">DOB</label>
-                <input
-                  type="date"
-                  value={formData.dob}
-                  onChange={(e) => handleAgeCalculation(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">City / Address</label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="e.g. Hyderabad"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 uppercase mb-1">
-                Medical Alerts / Allergies
-              </label>
-              <input
-                type="text"
-                value={formData.medicalAlerts}
-                onChange={(e) => setFormData({ ...formData, medicalAlerts: e.target.value })}
-                placeholder="e.g. Penicillin Allergy, Hypertension, Diabetic"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium"
-              />
-            </div>
-
-            <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowRegisterModal(false)}
-                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-600 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-5 py-2 bg-[#0A685D] hover:bg-[#085249] text-white rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer"
-              >
-                {submitting ? 'Saving...' : editingPatient ? 'Update' : 'Register'}
-              </button>
             </div>
           </form>
         </div>

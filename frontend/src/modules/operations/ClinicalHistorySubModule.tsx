@@ -19,6 +19,7 @@ import {
   X,
   Activity,
   Filter,
+  Download,
 } from 'lucide-react';
 import api from '../../services/api';
 import { Patient, VisitHistoryRecord, Procedure, ClinicalNote } from '../../types';
@@ -194,8 +195,19 @@ export const ClinicalHistorySubModule: React.FC<ClinicalHistorySubModuleProps> =
             </div>
           </div>
 
-          <div className="w-40">
-            <label className="block text-xs font-bold text-slate-700 mb-1">Visit Date</label>
+          <div className="w-44">
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700">Visit Date</label>
+              {filterDate && (
+                <button
+                  type="button"
+                  onClick={() => setFilterDate('')}
+                  className="text-[10px] font-bold text-blue-600 hover:underline cursor-pointer"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
             <input
               type="date"
               value={filterDate}
@@ -203,6 +215,41 @@ export const ClinicalHistorySubModule: React.FC<ClinicalHistorySubModuleProps> =
               className="w-full text-xs p-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              const headers = ['Visit Date', 'Patient Name', 'Patient ID', 'Doctors', 'Chief Complaints', 'Diagnosis', 'Procedures', 'Total Fee (INR)'];
+              const rows = filteredVisits.map((v) => {
+                const note = v.clinicalNotes?.[0] || (v as any).patientPrimaryNote;
+                const procNames = (v.procedures || []).map((p: any) => `${p.procedureName} (₹${p.charges})`).join('; ');
+                const totalFee = (v.procedures || []).reduce((s: number, p: any) => s + (p.charges || 0), 0);
+                return [
+                  v.visitDate || '',
+                  v.patient?.name || '',
+                  v.patient?.patientCode || '',
+                  (v.consultingDoctors || []).map((d: any) => d.name).join(', '),
+                  note?.chiefComplaints || '',
+                  note?.diagnosis || '',
+                  procNames || 'None',
+                  String(totalFee),
+                ];
+              });
+              const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `Clinical-History-${filterDate || 'All-Dates'}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="mt-5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer shrink-0"
+            title="Download clinical history as CSV"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export</span>
+          </button>
         </div>
       </div>
 
@@ -240,8 +287,9 @@ export const ClinicalHistorySubModule: React.FC<ClinicalHistorySubModuleProps> =
         ) : (
           filteredVisits.map((visit) => {
             const isExpanded = !!expandedVisits[visit.id];
-            const primaryNote = visit.clinicalNotes[0];
-            const primaryDoctor = visit.consultingDoctors[0]?.name || 'Attending Doctor';
+            const primaryNote = visit.clinicalNotes[0] || (visit as any).patientPrimaryNote || ((visit.procedures.find((p: any) => p.clinicalNote) as any)?.clinicalNote);
+            const isNoteLinked = visit.clinicalNotes.length === 0 && !!primaryNote;
+            const primaryDoctor = visit.consultingDoctors[0]?.name || primaryNote?.doctor?.user?.fullName || 'Attending Doctor';
 
             return (
               <div
@@ -283,7 +331,9 @@ export const ClinicalHistorySubModule: React.FC<ClinicalHistorySubModuleProps> =
                       {visit.procedures.length} {visit.procedures.length === 1 ? 'Procedure' : 'Procedures'}
                     </span>
                     <span className="text-[11px] font-bold px-2 py-0.5 bg-teal-100 text-teal-800 rounded-full">
-                      {visit.clinicalNotes.length} {visit.clinicalNotes.length === 1 ? 'Examination' : 'Examinations'}
+                      {visit.clinicalNotes.length > 0 ? visit.clinicalNotes.length : (primaryNote ? 1 : 0)}{' '}
+                      {visit.clinicalNotes.length === 1 || (!visit.clinicalNotes.length && primaryNote) ? 'Examination' : 'Examinations'}
+                      {isNoteLinked && ' (Patient Profile)'}
                     </span>
 
                     <button
@@ -460,8 +510,13 @@ export const ClinicalHistorySubModule: React.FC<ClinicalHistorySubModuleProps> =
                             <tbody className="divide-y divide-slate-100">
                               {visit.procedures.map((proc) => (
                                 <tr key={proc.id} className="hover:bg-slate-50/70">
-                                  <td className="p-2.5 pl-3 font-bold text-slate-900">
-                                    {proc.procedureName || proc.procedureMaster?.name || 'Procedure'}
+                                  <td className="p-2.5 pl-3">
+                                    <div className="font-bold text-slate-900">
+                                      {proc.procedureName || proc.procedureMaster?.name || 'Procedure'}
+                                    </div>
+                                    {proc.clinicalNotes && (
+                                      <div className="text-[10px] text-slate-500 italic mt-0.5 max-w-xs">{proc.clinicalNotes}</div>
+                                    )}
                                   </td>
                                   <td className="p-2.5 font-mono text-slate-500 text-[11px]">
                                     {proc.procedureCode}

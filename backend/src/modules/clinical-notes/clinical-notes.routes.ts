@@ -141,11 +141,16 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 
       // If tied to an appointment, auto-mark appointment as COMPLETED or IN_PROGRESS
       if (data.appointmentId) {
-        const updatedApt = await tx.appointment.update({
-          where: { id: data.appointmentId },
-          data: { status: AppointmentStatus.COMPLETED },
-        });
-        emitRealtimeEvent('appointment:updated', updatedApt);
+        const apt = await tx.appointment.findUnique({ where: { id: data.appointmentId } });
+        if (apt) {
+          const isProcVisit = apt.visitType === 'PROCEDURE' || !!apt.procedureName;
+          const targetAptStatus = isProcVisit ? AppointmentStatus.IN_PROGRESS : AppointmentStatus.COMPLETED;
+          const updatedApt = await tx.appointment.update({
+            where: { id: data.appointmentId },
+            data: { status: targetAptStatus },
+          });
+          emitRealtimeEvent('appointment:updated', updatedApt);
+        }
       }
 
       return createdNote;
@@ -426,17 +431,22 @@ router.post('/examination', authenticateToken, async (req: Request, res: Respons
       });
     }
 
-    // If tied to an appointment, auto-mark appointment as COMPLETED
+    // If tied to an appointment, auto-mark consultation as completed (or in_progress if procedure appointment)
     if (data.appointmentId) {
-      await prisma.appointment
-        .update({
-          where: { id: data.appointmentId },
-          data: { status: AppointmentStatus.COMPLETED },
-        })
-        .then((updated) => {
-          emitRealtimeEvent('appointment:updated', updated);
-        })
-        .catch(() => null);
+      const apt = await prisma.appointment.findUnique({ where: { id: data.appointmentId } });
+      if (apt) {
+        const isProcVisit = apt.visitType === 'PROCEDURE' || !!apt.procedureName;
+        const targetAptStatus = isProcVisit ? AppointmentStatus.IN_PROGRESS : AppointmentStatus.COMPLETED;
+        await prisma.appointment
+          .update({
+            where: { id: data.appointmentId },
+            data: { status: targetAptStatus },
+          })
+          .then((updated) => {
+            emitRealtimeEvent('appointment:updated', updated);
+          })
+          .catch(() => null);
+      }
     }
 
     emitRealtimeEvent('clinical-note:saved', createdNote);

@@ -7,10 +7,21 @@ const router = Router();
 // GET /api/dashboard/stats
 router.get('/stats', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateParam = typeof req.query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)
+      ? req.query.date
+      : null;
+
+    let today: Date;
+    let tomorrow: Date;
+    if (dateParam) {
+      today = new Date(`${dateParam}T00:00:00.000Z`);
+      tomorrow = new Date(`${dateParam}T23:59:59.999Z`);
+    } else {
+      today = new Date();
+      today.setHours(0, 0, 0, 0);
+      tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+    }
 
     // 1. Total & Today's Registered Patients
     const [totalPatients, todayPatients] = await Promise.all([

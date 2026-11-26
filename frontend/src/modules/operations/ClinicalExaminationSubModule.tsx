@@ -1983,7 +1983,7 @@ export const ClinicalExaminationSubModule: React.FC<ClinicalExaminationSubModule
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div>
                           <label className="block text-[11px] font-semibold text-slate-600 mb-1">Priority</label>
                           <select
@@ -1996,39 +1996,6 @@ export const ClinicalExaminationSubModule: React.FC<ClinicalExaminationSubModule
                             <option value="Normal">Normal</option>
                             <option value="Low">Low Priority</option>
                           </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[11px] font-semibold text-slate-600 mb-1">Planned Date</label>
-                          <div className="flex items-center gap-1.5">
-                            <input
-                              type="date"
-                              value={t.plannedDate ? String(t.plannedDate).substring(0, 10) : ''}
-                              onChange={(e) => updateTreatment(idx, 'plannedDate', e.target.value)}
-                              className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg focus:outline-hidden"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCalendarTarget({ type: 'treatment', index: idx });
-                                const pDate = t.plannedDate ? String(t.plannedDate).substring(0, 10) : todayStr;
-                                setCalendarPickedDate(pDate);
-                                if (t.timeSlot) {
-                                  setCalendarPickedTime(t.timeSlot);
-                                } else if (t.advice && t.advice.includes('Slot:')) {
-                                  const match = t.advice.match(/Slot:\s*([0-9]{1,2}:[0-9]{2}\s*(?:AM|PM))/i);
-                                  if (match) setCalendarPickedTime(match[1]);
-                                }
-                                const [py, pm, pd] = pDate.split('-').map(Number);
-                                setCalendarCurrentMonth(py && pm ? new Date(py, pm - 1, pd || 1) : new Date());
-                                setShowCalendarModal(true);
-                              }}
-                              className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg border border-blue-200 transition cursor-pointer shrink-0"
-                              title="Select from Interactive Calendar"
-                            >
-                              <Calendar className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
                         </div>
 
                         <div className="md:col-span-2">

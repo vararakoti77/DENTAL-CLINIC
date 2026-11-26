@@ -63,11 +63,26 @@ async function generatePatientCode(): Promise<string> {
 }
 
 // GET /api/patients - Listing & Search
-router.get('/', authenticateToken, async (req: Request, res: Response) => {
+router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const { search, limit = '50', offset = '0' } = req.query;
 
     const where: any = {};
+    if (req.user?.role?.startsWith('DOCTOR')) {
+      const loggedInDoc = await prisma.doctor.findUnique({ where: { userId: req.user.id } });
+      if (loggedInDoc) {
+        where.AND = [
+          ...(where.AND || []),
+          {
+            OR: [
+              { appointments: { some: { doctorId: loggedInDoc.id } } },
+              { clinicalNotes: { some: { doctorId: loggedInDoc.id } } },
+              { procedures: { some: { doctorId: loggedInDoc.id } } },
+            ],
+          },
+        ];
+      }
+    }
     if (search && typeof search === 'string' && search.trim() !== '') {
       const q = search.trim();
       where.OR = [

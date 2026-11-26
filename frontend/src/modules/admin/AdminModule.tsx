@@ -58,7 +58,7 @@ export const AdminModule: React.FC = () => {
   const [showAddDoctorModal, setShowAddDoctorModal] = useState(false);
   const [docFullName, setDocFullName] = useState('');
   const [docSpecialization, setDocSpecialization] = useState<'DENTAL' | 'ORTHOPEDIC'>('DENTAL');
-  const [docFee, setDocFee] = useState<number>(600);
+  const [docFee, setDocFee] = useState<number>(0);
   const [docLicense, setDocLicense] = useState('');
   const [docPhone, setDocPhone] = useState('');
   const [docEmail, setDocEmail] = useState('');

@@ -139,9 +139,19 @@ export const PharmacyModule: React.FC<PharmacyModuleProps> = ({
     setCsvSuccessMsg('');
     setCsvErrorMsg('');
 
+    const lowerName = file.name.toLowerCase();
+    if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
+      setCsvErrorMsg('Binary Excel (.xlsx/.xls) files are not supported directly. Please open in Excel and Save As ".csv (Comma delimited)", then upload the .csv file.');
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = (e.target?.result as string) || '';
+      if (text.includes('\u0000') || text.startsWith('PK')) {
+        setCsvErrorMsg('Invalid file format: This appears to be a binary file, not a valid UTF-8 CSV.');
+        return;
+      }
       const rawLines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
       if (rawLines.length <= 1) {
         setCsvErrorMsg('The selected CSV file is empty or only has 1 line.');
@@ -171,6 +181,10 @@ export const PharmacyModule: React.FC<PharmacyModuleProps> = ({
   // Confirm Smart Import
   const handleConfirmSmartImport = async () => {
     if (csvRawRows.length === 0) return;
+    if (!csvMapping['medicineName']) {
+      setCsvErrorMsg("Cannot import: 'Item / Medicine Name' column is required and not mapped. Please map a valid Medicine Name column or upload a valid pharmacy inventory CSV.");
+      return;
+    }
     setImportingCsv(true);
     setCsvErrorMsg('');
 
@@ -180,54 +194,57 @@ export const PharmacyModule: React.FC<PharmacyModuleProps> = ({
         headerIndexMap[h] = idx;
       });
 
-      const items = csvRawRows.map((row, idx) => {
-        const getVal = (fieldKey: string) => {
-          const header = csvMapping[fieldKey];
-          if (!header || headerIndexMap[header] === undefined) return undefined;
-          return row[headerIndexMap[header]]?.trim();
-        };
+      const items = csvRawRows
+        .map((row, idx) => {
+          const getVal = (fieldKey: string) => {
+            const header = csvMapping[fieldKey];
+            if (!header || headerIndexMap[header] === undefined) return undefined;
+            return row[headerIndexMap[header]]?.trim();
+          };
 
-        const rawName = getVal('medicineName') || `Medicine-${idx + 1}`;
-        const rawBrand = getVal('brandName') || rawName;
-        const rawItemCode = getVal('itemCode');
-        const rawMfg = getVal('manufacturer');
-        const rawStrength = getVal('strength');
-        const rawBarcode = getVal('barcode');
-        const rawShelf = getVal('shelfNo');
-        const rawPkg = getVal('packageInfo');
-        const rawHsn = getVal('hsnCode') || '3004 90 00';
-        const rawBuyingUnit = getVal('buyingUnit') || 'STRIP';
-        const rawSellingUnit = getVal('sellingUnit') || 'TABLET';
-        const rawRatio = parseInt(getVal('unitRatio') || '10', 10) || 10;
-        const rawReorder = parseInt(getVal('reorderLevel') || '20', 10) || 20;
-        const rawBuyingPrice = parseFloat(getVal('buyingPrice') || '0') || 0;
-        const rawMrp = parseFloat(getVal('mrp') || '0') || parseFloat(getVal('sellingPrice') || '0') || 0;
-        const rawSellingPrice = parseFloat(getVal('sellingPrice') || '0') || rawMrp || 0;
-        const rawOpeningStock = parseInt(getVal('openingStock') || '0', 10) || 0;
-        const rawBatch = getVal('batchNumber') || (rawOpeningStock > 0 ? `BATCH-${Date.now().toString().slice(-4)}-${idx + 1}` : undefined);
-        const rawExp = normalizeExpiryDate(getVal('expiryDate'));
-        const matchedType = normalizeMedicineType(getVal('medicineType'));
-        const matchedPrescription = normalizePrescriptionType(getVal('prescriptionType'));
+          const rawName = getVal('medicineName');
+          if (!rawName || rawName.length < 2) return null;
 
-        let packageInfo = rawPkg || '10X10';
-        if (rawShelf && !packageInfo.includes('Shelf:')) {
-          packageInfo = `${packageInfo} | Shelf: ${rawShelf}`;
-        }
+          const rawBrand = getVal('brandName') || rawName;
+          const rawItemCode = getVal('itemCode');
+          const rawMfg = getVal('manufacturer');
+          const rawStrength = getVal('strength');
+          const rawBarcode = getVal('barcode');
+          const rawShelf = getVal('shelfNo');
+          const rawPkg = getVal('packageInfo');
+          const rawHsn = getVal('hsnCode') || '';
+          const rawBuyingUnit = getVal('buyingUnit') || 'STRIP';
+          const rawSellingUnit = getVal('sellingUnit') || 'TABLET';
+          const rawRatio = parseInt(getVal('unitRatio') || '1', 10) || 1;
+          const rawReorder = parseInt(getVal('reorderLevel') || '0', 10) || 0;
+          const rawBuyingPrice = parseFloat(getVal('buyingPrice') || '0') || 0;
+          const rawMrp = parseFloat(getVal('mrp') || '0') || parseFloat(getVal('sellingPrice') || '0') || 0;
+          const rawSellingPrice = parseFloat(getVal('sellingPrice') || '0') || rawMrp || 0;
+          const rawOpeningStock = parseInt(getVal('openingStock') || '0', 10) || 0;
+          const rawBatch = getVal('batchNumber') || (rawOpeningStock > 0 ? `BATCH-${Date.now().toString().slice(-4)}-${idx + 1}` : undefined);
+          const rawExp = normalizeExpiryDate(getVal('expiryDate'));
+          const matchedType = normalizeMedicineType(getVal('medicineType'));
+          const matchedPrescription = normalizePrescriptionType(getVal('prescriptionType'));
 
-        return {
-          medicineName: rawName,
-          brandName: rawBrand,
-          itemCode: rawItemCode || undefined,
-          manufacturer: rawMfg || undefined,
-          strength: rawStrength || undefined,
-          barcode: rawBarcode || undefined,
-          shelfNo: rawShelf || undefined,
-          hsnCode: rawHsn,
-          packageInfo,
-          medicineType: matchedType,
-          buyingUnit: rawBuyingUnit,
-          sellingUnit: rawSellingUnit,
-          unitRatio: rawRatio,
+          let packageInfo = rawPkg || '';
+          if (rawShelf && !packageInfo.includes('Shelf:')) {
+            packageInfo = packageInfo ? `${packageInfo} | Shelf: ${rawShelf}` : `Shelf: ${rawShelf}`;
+          }
+
+          return {
+            medicineName: rawName,
+            brandName: rawBrand,
+            itemCode: rawItemCode || undefined,
+            manufacturer: rawMfg || undefined,
+            strength: rawStrength || undefined,
+            barcode: rawBarcode || undefined,
+            shelfNo: rawShelf || undefined,
+            hsnCode: rawHsn,
+            packageInfo,
+            medicineType: matchedType,
+            buyingUnit: rawBuyingUnit,
+            sellingUnit: rawSellingUnit,
+            unitRatio: rawRatio,
           reorderLevel: rawReorder,
           buyingPrice: rawBuyingPrice,
           mrp: rawMrp,
@@ -237,7 +254,13 @@ export const PharmacyModule: React.FC<PharmacyModuleProps> = ({
           expiryDate: rawExp,
           prescriptionType: matchedPrescription,
         };
-      });
+      }).filter((x): x is NonNullable<typeof x> => x !== null);
+
+      if (items.length === 0) {
+        setCsvErrorMsg('No valid medicine rows found. Please ensure the Item / Medicine Name column is mapped and has valid medicine names.');
+        setImportingCsv(false);
+        return;
+      }
 
       const res = await api.post('/pharmacy/medicines/bulk-import', { items });
       if (res.data.success) {

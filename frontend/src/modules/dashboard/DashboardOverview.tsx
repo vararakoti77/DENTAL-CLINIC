@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Layers,
   Coins,
+  Download,
 } from 'lucide-react';
 import api from '../../services/api';
 import { getSocket } from '../../services/socket';
@@ -63,13 +64,19 @@ const formatCurrency = (val: number | undefined) => {
 };
 
 export const DashboardOverview: React.FC<DashboardProps> = ({ onNavigate }) => {
+  const getTodayStr = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  };
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayStr());
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentAppointments, setRecentAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchStats = async () => {
+  const fetchStats = async (dateOverride?: string) => {
+    const targetDate = dateOverride ?? selectedDate;
     try {
-      const res = await api.get('/dashboard/stats');
+      const res = await api.get(`/dashboard/stats?date=${targetDate}`);
       if (res.data.success) {
         setStats(res.data.stats);
         setRecentAppointments(res.data.recentAppointments);
@@ -82,11 +89,11 @@ export const DashboardOverview: React.FC<DashboardProps> = ({ onNavigate }) => {
   };
 
   useEffect(() => {
-    fetchStats();
+    fetchStats(selectedDate);
 
     const socket = getSocket();
     const handleRefresh = () => {
-      fetchStats();
+      fetchStats(selectedDate);
     };
 
     socket.on('patient:registered', handleRefresh);
@@ -106,7 +113,43 @@ export const DashboardOverview: React.FC<DashboardProps> = ({ onNavigate }) => {
       socket.off('pharmacy:inventory-updated', handleRefresh);
       socket.off('procedure:completed', handleRefresh);
     };
-  }, []);
+  }, [selectedDate]);
+
+  const handleDownloadDailySummary = () => {
+    const rows = [
+      ['Date', selectedDate],
+      ['Total Patients (All Time)', String(stats?.totalPatients || 0)],
+      ['New Patients Registered', String(stats?.todayPatients || 0)],
+      ['Total Appointments', String(stats?.todayAppointments || 0)],
+      ['Dental Appointments', String(stats?.dentalToday || 0)],
+      ['Orthopedic Appointments', String(stats?.orthoToday || 0)],
+      ['Completed Appointments', String(stats?.completedToday || 0)],
+      ['Total Revenue Collected (INR)', String(stats?.totalRevenueToday || 0)],
+      ['Consultation Collected (INR)', String(stats?.breakdown?.consultationCollected || 0)],
+      ['Procedure/OT Collected (INR)', String(stats?.breakdown?.operationCollected || 0)],
+      ['Pharmacy Collected (INR)', String(stats?.breakdown?.pharmacyCollected || 0)],
+      ['Outstanding Due (INR)', String(stats?.totalOutstandingToday || 0)],
+      [],
+      ['Appointment Code', 'Time', 'Patient Name', 'Patient ID', 'Doctor', 'Visit Type', 'Status'],
+      ...recentAppointments.map((apt) => [
+        apt.appointmentCode || '',
+        apt.startTime ? new Date(apt.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+        apt.patient?.name || '',
+        apt.patient?.patientCode || '',
+        apt.doctor?.user?.fullName || '',
+        apt.visitType || '',
+        apt.status || '',
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Clinic-Daily-Summary-${selectedDate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (loading && !stats) {
     return (
@@ -118,6 +161,39 @@ export const DashboardOverview: React.FC<DashboardProps> = ({ onNavigate }) => {
 
   return (
     <div className="space-y-6 w-full pb-8">
+      {/* Day-Wise Calendar & Export Bar */}
+      <div className="bg-white p-3.5 px-5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <Calendar className="w-4 h-4 text-[#0A685D]" />
+          <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Daily Overview Date:</span>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => {
+              if (e.target.value) setSelectedDate(e.target.value);
+            }}
+            className="text-xs font-bold px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#0A685D]"
+          />
+          {selectedDate !== getTodayStr() && (
+            <button
+              type="button"
+              onClick={() => setSelectedDate(getTodayStr())}
+              className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-[#0A685D] border border-teal-200 rounded-xl text-[11px] font-bold cursor-pointer"
+            >
+              Today
+            </button>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={handleDownloadDailySummary}
+          className="px-3.5 py-1.5 bg-[#0A685D] hover:bg-[#085249] text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs cursor-pointer transition"
+        >
+          <Download className="w-3.5 h-3.5" />
+          <span>Download {selectedDate} Report (CSV)</span>
+        </button>
+      </div>
       {/* Top 4 Stat Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4.5">
         {/* Card 1: Today's Schedule */}

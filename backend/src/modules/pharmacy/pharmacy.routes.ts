@@ -174,10 +174,12 @@ router.post('/medicines/bulk-import', authenticateToken, async (req: Request, re
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       try {
-        if (!item.medicineName) {
-          errors.push(`Row ${i + 1}: Missing medicine name`);
+        const cleanName = typeof item.medicineName === 'string' ? item.medicineName.trim() : '';
+        if (!cleanName || cleanName.length < 2 || /^Medicine-\d+$/i.test(cleanName) || /[\u0000-\u0008\u000E-\u001F]/.test(cleanName)) {
+          errors.push(`Row ${i + 1}: Invalid or missing medicine name`);
           continue;
         }
+        item.medicineName = cleanName;
 
         const existing = await prisma.medicineMaster.findFirst({
           where: {
@@ -270,6 +272,14 @@ router.post('/medicines/bulk-import', authenticateToken, async (req: Request, re
       } catch (rowErr: any) {
         errors.push(`Row ${i + 1} (${item.medicineName || 'Unknown'}): ${rowErr.message}`);
       }
+    }
+
+    if (importedCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid medicine records found in the uploaded file. Please upload a valid Pharmacy CSV with a Medicine Name column.',
+        errors: errors.length > 0 ? errors : undefined,
+      });
     }
 
     emitRealtimeEvent('pharmacy:inventory-updated', { type: 'BULK_IMPORT', count: importedCount });
