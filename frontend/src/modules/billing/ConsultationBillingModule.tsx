@@ -59,7 +59,7 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [consultationFee, setConsultationFee] = useState(0);
   const [discount, setDiscount] = useState(0);
-  const [discountType, setDiscountType] = useState<'INR' | 'PERCENT'>('INR');
+  const [discountType, setDiscountType] = useState<'INR' | 'PERCENT'>('PERCENT');
   const [discountInputVal, setDiscountInputVal] = useState<number>(0);
   const [taxRate, setTaxRate] = useState(0); // GST %
   const [paidAmount, setPaidAmount] = useState(0);
@@ -1214,21 +1214,23 @@ export const ConsultationBillingModule: React.FC<BillingModuleProps> = ({
 
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Discount</label>
-                        <div className="flex items-center rounded-lg bg-slate-200/80 p-0.5 text-[9px] font-black">
-                          <button
-                            type="button"
-                            onClick={() => handleDiscountChange(discountInputVal, 'INR')}
-                            className={`px-1.5 py-0.5 rounded cursor-pointer ${discountType === 'INR' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'}`}
-                          >
-                            ₹
-                          </button>
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                          Discount ({discountType === 'PERCENT' ? '%' : '₹'})
+                        </label>
+                        <div className="flex items-center rounded-lg bg-slate-200/80 p-0.5 text-[10px] font-black">
                           <button
                             type="button"
                             onClick={() => handleDiscountChange(discountInputVal, 'PERCENT')}
-                            className={`px-1.5 py-0.5 rounded cursor-pointer ${discountType === 'PERCENT' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'}`}
+                            className={`px-2 py-0.5 rounded cursor-pointer ${discountType === 'PERCENT' ? 'bg-teal-600 text-white shadow-2xs' : 'text-slate-600'}`}
                           >
-                            %
+                            % Off
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDiscountChange(discountInputVal, 'INR')}
+                            className={`px-2 py-0.5 rounded cursor-pointer ${discountType === 'INR' ? 'bg-teal-600 text-white shadow-2xs' : 'text-slate-600'}`}
+                          >
+                            ₹ Flat
                           </button>
                         </div>
                       </div>

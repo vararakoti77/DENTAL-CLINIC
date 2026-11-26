@@ -146,9 +146,7 @@ export function App() {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={(tab) => {
-          if (tab === 'patients') {
-            setSelectedPatientNav(null);
-          }
+          setSelectedPatientNav(null);
           setActiveTab(tab);
         }}
         user={user}

@@ -44,6 +44,10 @@ export const OperationsModule: React.FC<OperationsModuleProps> = ({
 
   // Load patient context if initialPatientId is passed from other modules
   useEffect(() => {
+    if (!initialPatientId) {
+      setActivePatientContext(null);
+      return;
+    }
     if (initialPatientId && (!activePatientContext || activePatientContext.id !== initialPatientId)) {
       api.get(`/patients/${initialPatientId}`)
         .then((res) => {

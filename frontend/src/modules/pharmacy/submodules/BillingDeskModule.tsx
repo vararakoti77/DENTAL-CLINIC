@@ -84,9 +84,11 @@ export const BillingDeskModule: React.FC<BillingDeskModuleProps> = ({
 
   // Sync selected patient from parent if any
   useEffect(() => {
-    if (selectedPatientFromParent) {
+    if (selectedPatientFromParent && selectedPatientFromParent.name) {
       setCustomerMode('registered');
       setSelectedPatient(selectedPatientFromParent);
+    } else if (!selectedPatientFromParent) {
+      setSelectedPatient(null);
     }
   }, [selectedPatientFromParent]);
 
