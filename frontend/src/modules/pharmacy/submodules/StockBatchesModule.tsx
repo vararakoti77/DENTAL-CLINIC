@@ -63,7 +63,8 @@ export const StockBatchesModule: React.FC<StockBatchesModuleProps> = ({ medicine
 
     const rows: string[][] = [];
     filteredStockMedicines.forEach((med) => {
-      const statusLabel = med.totalStock <= 0 ? 'OUT OF STOCK' : med.isLowStock ? 'LOW STOCK' : 'IN STOCK';
+      const currentQty = med.currentStock ?? (med.batches || []).reduce((s, b) => s + (b.quantityInBase || 0), 0);
+      const statusLabel = currentQty <= 0 ? 'OUT OF STOCK' : med.isLowStock ? 'LOW STOCK' : 'IN STOCK';
       if (med.batches && med.batches.length > 0) {
         med.batches.forEach((b) => {
           rows.push([
@@ -108,7 +109,7 @@ export const StockBatchesModule: React.FC<StockBatchesModuleProps> = ({ medicine
           '0',
           '0',
           '0',
-          String(med.totalStock || 0),
+          String(currentQty),
           '',
           '',
           med.prescriptionType || '',
